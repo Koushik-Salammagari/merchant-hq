@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
-import { subscribeTrace, getTraceEntries } from "@/lib/trace";
+import { subscribeTrace, getTraceEntries, EMPTY_TRACE } from "@/lib/trace";
 import { formatDateTime } from "@/lib/format";
 
 export default function TracePanel() {
-  const entries = useSyncExternalStore(subscribeTrace, getTraceEntries, () => []);
+  const entries = useSyncExternalStore(subscribeTrace, getTraceEntries, () => EMPTY_TRACE);
   const [expandedId, setExpandedId] = useState(null);
   const errorCount = entries.filter((e) => e.status === "error").length;
 
