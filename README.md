@@ -33,7 +33,7 @@ Almost every public WebMCP commerce example is **shopper-facing**: search a cata
 - **Frontend:** Next.js (App Router, JavaScript), deployed on Vercel.
 - **Backend:** Next.js API routes (Route Handlers) under `/api/*`.
 - **Persistence:** Vercel KV (Upstash Redis), scoped by a per-visitor session cookie, with an in-memory fallback so the app runs locally with no KV store attached. Every session is seeded on first read with the same realistic fixture data — its own private sandbox store.
-- **WebMCP tools:** registered client-side on mount and backed by the same API routes the dashboard UI calls, so there's one source of truth for state regardless of whether a human or an agent changed it.
+- **WebMCP tools:** registered client-side on mount and backed by the same API routes the dashboard UI calls, so there's one source of truth for state regardless of whether a human or an agent changed it. Both paths write through shared client-side stores (subscribed via `useSyncExternalStore`), so a change made by an agent shows up in the dashboard instantly — no reload, no polling.
 - **Tracing:** every tool call and every human action writes a structured entry — who did it, what tool, what args, what result, how long it took, whether it errored — rendered as an expandable, unified timeline in the dashboard's side panel.
 
 ## WebMCP tools
