@@ -9,13 +9,13 @@ export default function MessagesPanel({ messages, onReply, busyKeys }) {
 
   return (
     <Panel title="Messages" subtitle={`${messages.length} message${messages.length === 1 ? "" : "s"}`}>
-      {messages.length === 0 && <p className="px-5 py-6 text-sm text-gray-400">No messages.</p>}
+      {messages.length === 0 && <p className="px-6 py-8 text-sm text-gray-400">No messages.</p>}
       {messages.map((message) => {
         const busy = busyKeys.has(`message:${message.id}`);
         const draft = draftById[message.id] ?? "";
 
         return (
-          <div key={message.id} className="px-5 py-3">
+          <div key={message.id} className="px-6 py-4">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-gray-900">{message.customerName}</span>
               <StatusBadge status={message.status} />

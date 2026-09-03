@@ -1,16 +1,25 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import Header from "./Header";
+import Sidebar from "./Sidebar";
+import TopBar from "./TopBar";
 import SummaryStrip from "./SummaryStrip";
 import OrdersPanel from "./OrdersPanel";
 import InventoryPanel from "./InventoryPanel";
 import MessagesPanel from "./MessagesPanel";
 import DiscountsPanel from "./DiscountsPanel";
-import TracePanel from "./TracePanel";
+import TraceDrawer from "./TraceDrawer";
 import { api } from "@/lib/api-client";
-import { traced } from "@/lib/trace";
+import { traced, subscribeTrace, getTraceEntries, EMPTY_TRACE } from "@/lib/trace";
 import { ordersStore, inventoryStore, messagesStore, discountsStore, summaryStore } from "@/lib/entity-store";
+
+const VIEW_COPY = {
+  overview: { title: "Dashboard", subtitle: "What needs your attention right now" },
+  orders: { title: "Orders", subtitle: "Fulfill orders and manage refunds" },
+  inventory: { title: "Inventory", subtitle: "Track stock and restock low items" },
+  messages: { title: "Messages", subtitle: "Reply to customer questions" },
+  discounts: { title: "Discounts", subtitle: "Create and manage discount codes" },
+};
 
 export default function Dashboard() {
   // Reads straight from the shared stores that lib/api-client.js writes
@@ -22,10 +31,13 @@ export default function Dashboard() {
   const messages = useSyncExternalStore(messagesStore.subscribe, messagesStore.get, messagesStore.get);
   const discounts = useSyncExternalStore(discountsStore.subscribe, discountsStore.get, discountsStore.get);
   const summary = useSyncExternalStore(summaryStore.subscribe, summaryStore.get, summaryStore.get);
+  const traceEntries = useSyncExternalStore(subscribeTrace, getTraceEntries, () => EMPTY_TRACE);
 
   const [loading, setLoading] = useState(true);
   const [lastError, setLastError] = useState(null);
   const [busyKeys, setBusyKeys] = useState(new Set());
+  const [activeView, setActiveView] = useState("overview");
+  const [traceOpen, setTraceOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -104,35 +116,58 @@ export default function Dashboard() {
     });
   }
 
+  const traceErrorCount = traceEntries.filter((e) => e.status === "error").length;
+  const copy = VIEW_COPY[activeView];
+
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50">
-      <Header />
-      <main className="mx-auto w-full max-w-[1400px] flex-1 px-6 py-6">
-        {lastError && (
-          <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">
-            <span>{lastError}</span>
-            <button type="button" onClick={() => setLastError(null)} className="text-red-500 hover:text-red-700">
-              Dismiss
-            </button>
+    <div className="flex h-screen overflow-hidden bg-gray-50 text-gray-900">
+      <Sidebar activeView={activeView} onNavigate={setActiveView} />
+
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <TopBar
+          onToggleTrace={() => setTraceOpen((v) => !v)}
+          traceCount={traceEntries.length}
+          traceErrorCount={traceErrorCount}
+        />
+
+        <main className="flex-1 overflow-y-auto px-10 py-8">
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold tracking-tight text-gray-900">{copy.title}</h1>
+            <p className="mt-1 text-sm text-gray-400">{copy.subtitle}</p>
           </div>
-        )}
 
-        <SummaryStrip summary={summary} loading={loading} />
+          {lastError && (
+            <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">
+              <span>{lastError}</span>
+              <button type="button" onClick={() => setLastError(null)} className="text-red-500 hover:text-red-700">
+                Dismiss
+              </button>
+            </div>
+          )}
 
-        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          {activeView === "overview" && (
+            <SummaryStrip summary={summary} loading={loading} onNavigate={setActiveView} />
+          )}
+          {activeView === "orders" && (
             <OrdersPanel orders={orders} onUpdateStatus={handleUpdateOrderStatus} busyKeys={busyKeys} />
+          )}
+          {activeView === "inventory" && (
             <InventoryPanel items={inventory} onRestock={handleRestock} busyKeys={busyKeys} />
+          )}
+          {activeView === "messages" && (
             <MessagesPanel messages={messages} onReply={handleReply} busyKeys={busyKeys} />
+          )}
+          {activeView === "discounts" && (
             <DiscountsPanel
               discounts={discounts}
               onCreate={handleCreateDiscount}
               busy={busyKeys.has("discount:create")}
             />
-          </div>
-          <TracePanel />
-        </div>
-      </main>
+          )}
+        </main>
+      </div>
+
+      <TraceDrawer open={traceOpen} onClose={() => setTraceOpen(false)} />
     </div>
   );
 }

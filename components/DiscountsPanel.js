@@ -17,7 +17,7 @@ export default function DiscountsPanel({ discounts, onCreate, busy }) {
 
   return (
     <Panel title="Discounts" subtitle={`${discounts.length} active code${discounts.length === 1 ? "" : "s"}`}>
-      <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-2 px-5 py-3">
+      <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3 px-6 py-4">
         <label className="flex flex-col gap-1">
           <span className="text-xs text-gray-500">% off</span>
           <input
@@ -51,13 +51,13 @@ export default function DiscountsPanel({ discounts, onCreate, busy }) {
       </form>
 
       {discounts.length === 0 ? (
-        <p className="px-5 py-6 text-sm text-gray-400">No discount codes yet.</p>
+        <p className="px-6 py-8 text-sm text-gray-400">No discount codes yet.</p>
       ) : (
-        <div className="flex flex-wrap gap-2 px-5 py-3">
+        <div className="flex flex-wrap gap-2 px-6 py-4">
           {discounts.map((d) => (
             <span
               key={d.code}
-              className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-800"
+              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700"
               title={`Created ${formatDate(d.createdAt)}`}
             >
               {d.code} · {d.percentOff}% off
