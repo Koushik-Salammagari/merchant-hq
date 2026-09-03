@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import Header from "./Header";
 import SummaryStrip from "./SummaryStrip";
 import OrdersPanel from "./OrdersPanel";
@@ -10,13 +10,19 @@ import DiscountsPanel from "./DiscountsPanel";
 import TracePanel from "./TracePanel";
 import { api } from "@/lib/api-client";
 import { traced } from "@/lib/trace";
+import { ordersStore, inventoryStore, messagesStore, discountsStore, summaryStore } from "@/lib/entity-store";
 
 export default function Dashboard() {
-  const [orders, setOrders] = useState([]);
-  const [inventory, setInventory] = useState([]);
-  const [messages, setMessages] = useState([]);
-  const [discounts, setDiscounts] = useState([]);
-  const [summary, setSummary] = useState(null);
+  // Reads straight from the shared stores that lib/api-client.js writes
+  // to — whether a human click or a WebMCP tool call triggered the write,
+  // this component re-renders as soon as it happens. No local copies to
+  // fall out of sync.
+  const orders = useSyncExternalStore(ordersStore.subscribe, ordersStore.get, ordersStore.get);
+  const inventory = useSyncExternalStore(inventoryStore.subscribe, inventoryStore.get, inventoryStore.get);
+  const messages = useSyncExternalStore(messagesStore.subscribe, messagesStore.get, messagesStore.get);
+  const discounts = useSyncExternalStore(discountsStore.subscribe, discountsStore.get, discountsStore.get);
+  const summary = useSyncExternalStore(summaryStore.subscribe, summaryStore.get, summaryStore.get);
+
   const [loading, setLoading] = useState(true);
   const [lastError, setLastError] = useState(null);
   const [busyKeys, setBusyKeys] = useState(new Set());
@@ -25,19 +31,12 @@ export default function Dashboard() {
     let cancelled = false;
     (async () => {
       try {
-        const [ordersRes, inventoryRes, messagesRes, discountsRes, summaryRes] = await Promise.all([
+        await Promise.all([
           api.listOrders(),
           api.listInventory(),
           api.listMessages(),
           api.listDiscounts(),
-          api.getSummary(),
         ]);
-        if (cancelled) return;
-        setOrders(ordersRes.orders);
-        setInventory(inventoryRes.inventory);
-        setMessages(messagesRes.messages);
-        setDiscounts(discountsRes.discounts);
-        setSummary(summaryRes);
       } catch (err) {
         if (!cancelled) setLastError(err.message);
       } finally {
@@ -48,10 +47,6 @@ export default function Dashboard() {
       cancelled = true;
     };
   }, []);
-
-  async function refreshSummary() {
-    setSummary(await api.getSummary());
-  }
 
   async function runAction(key, { action, describeResult }) {
     setBusyKeys((prev) => new Set(prev).add(key));
@@ -73,8 +68,6 @@ export default function Dashboard() {
     runAction(`order:${orderId}`, {
       action: async () => {
         const { order } = await api.updateOrderStatus(orderId, status);
-        setOrders((prev) => prev.map((o) => (o.id === orderId ? order : o)));
-        await refreshSummary();
         return order;
       },
       describeResult: (order) => `Marked order ${order.id} as ${order.status.replace("_", " ")}`,
@@ -85,8 +78,6 @@ export default function Dashboard() {
     runAction(`inventory:${sku}`, {
       action: async () => {
         const { item } = await api.restockItem(sku, addQty);
-        setInventory((prev) => prev.map((i) => (i.sku === sku ? item : i)));
-        await refreshSummary();
         return item;
       },
       describeResult: (item) => `Restocked ${item.sku} by ${addQty} (now ${item.stock})`,
@@ -97,8 +88,6 @@ export default function Dashboard() {
     runAction(`message:${messageId}`, {
       action: async () => {
         const { message } = await api.draftMessageReply(messageId, replyText);
-        setMessages((prev) => prev.map((m) => (m.id === messageId ? message : m)));
-        await refreshSummary();
         return message;
       },
       describeResult: (message) => `Replied to ${message.customerName}'s message`,
@@ -109,7 +98,6 @@ export default function Dashboard() {
     runAction("discount:create", {
       action: async () => {
         const { discount } = await api.createDiscountCode(percentOff, code);
-        setDiscounts((prev) => [...prev, discount]);
         return discount;
       },
       describeResult: (discount) => `Created discount code ${discount.code} (${discount.percentOff}% off)`,
