@@ -79,7 +79,7 @@ export default function Dashboard() {
   function handleUpdateOrderStatus(orderId, status) {
     runAction(`order:${orderId}`, {
       action: async () => {
-        const { order } = await api.updateOrderStatus(orderId, status);
+        const { order } = await api.updateOrderStatus(orderId, status, "human");
         return order;
       },
       describeResult: (order) => `Marked order ${order.id} as ${order.status.replace("_", " ")}`,
@@ -89,7 +89,7 @@ export default function Dashboard() {
   function handleRestock(sku, addQty) {
     runAction(`inventory:${sku}`, {
       action: async () => {
-        const { item } = await api.restockItem(sku, addQty);
+        const { item } = await api.restockItem(sku, addQty, "human");
         return item;
       },
       describeResult: (item) => `Restocked ${item.sku} by ${addQty} (now ${item.stock})`,
@@ -99,7 +99,7 @@ export default function Dashboard() {
   function handleReply(messageId, replyText) {
     runAction(`message:${messageId}`, {
       action: async () => {
-        const { message } = await api.draftMessageReply(messageId, replyText);
+        const { message } = await api.draftMessageReply(messageId, replyText, "human");
         return message;
       },
       describeResult: (message) => `Replied to ${message.customerName}'s message`,
@@ -109,7 +109,7 @@ export default function Dashboard() {
   function handleCreateDiscount(percentOff, code) {
     runAction("discount:create", {
       action: async () => {
-        const { discount } = await api.createDiscountCode(percentOff, code);
+        const { discount } = await api.createDiscountCode(percentOff, code, "human");
         return discount;
       },
       describeResult: (discount) => `Created discount code ${discount.code} (${discount.percentOff}% off)`,

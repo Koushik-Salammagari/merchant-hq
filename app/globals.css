@@ -20,3 +20,34 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* "Recently changed" row/card flash — teal for a WebMCP tool call, a
+   neutral slate for a human click. A single-shot animation (no CSS
+   opacity ticking driven from JS); components restart it per event by
+   changing the element's `key`, which remounts it and replays the
+   animation from 0%. */
+@keyframes flash-agent {
+  0% {
+    background-color: rgba(13, 148, 136, 0.16);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes flash-human {
+  0% {
+    background-color: rgba(100, 116, 139, 0.14);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.flash-agent {
+  animation: flash-agent 1.8s ease-out;
+}
+
+.flash-human {
+  animation: flash-human 1.8s ease-out;
+}

@@ -3,6 +3,25 @@
 import { useState } from "react";
 import Panel from "./Panel";
 import { formatDate } from "@/lib/format";
+import { useHighlight, flashClassName } from "@/lib/highlight-store";
+
+function DiscountChip({ discount }) {
+  // A chip-level component (not inlined in .map()) so useHighlight — a
+  // hook — can be called per chip without breaking the Rules of Hooks.
+  // This is also what makes a newly-created chip flash, not just updates
+  // to existing ones: the chip mounts already carrying its highlight.
+  const highlight = useHighlight("discounts", discount.code);
+
+  return (
+    <span
+      key={highlight?.at ?? "base"}
+      className={`inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 ${flashClassName(highlight)}`}
+      title={`Created ${formatDate(discount.createdAt)}`}
+    >
+      {discount.code} · {discount.percentOff}% off
+    </span>
+  );
+}
 
 export default function DiscountsPanel({ discounts, onCreate, busy }) {
   const [percentOff, setPercentOff] = useState(10);
@@ -55,13 +74,7 @@ export default function DiscountsPanel({ discounts, onCreate, busy }) {
       ) : (
         <div className="flex flex-wrap gap-2 px-6 py-4">
           {discounts.map((d) => (
-            <span
-              key={d.code}
-              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700"
-              title={`Created ${formatDate(d.createdAt)}`}
-            >
-              {d.code} · {d.percentOff}% off
-            </span>
+            <DiscountChip key={d.code} discount={d} />
           ))}
         </div>
       )}
