@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { buildToolDefinitions } from "@/lib/webmcp-tools";
+import ConfirmModal from "./ConfirmModal";
 
 const WebMcpStatusContext = createContext("checking");
 
@@ -45,6 +46,7 @@ export default function WebMcpProvider({ children }) {
   return (
     <WebMcpStatusContext.Provider value={status}>
       {children}
+      <ConfirmModal />
     </WebMcpStatusContext.Provider>
   );
 }

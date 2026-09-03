@@ -48,7 +48,11 @@ export default function TracePanel() {
                 </span>
                 <span
                   className={`shrink-0 text-xs font-medium ${
-                    entry.status === "error" ? "text-red-600" : "text-gray-400"
+                    entry.status === "error"
+                      ? "text-red-600"
+                      : entry.status === "declined"
+                        ? "text-amber-600"
+                        : "text-gray-400"
                   }`}
                 >
                   {entry.durationMs}ms · {entry.status}
