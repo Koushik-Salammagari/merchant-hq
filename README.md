@@ -1,18 +1,16 @@
 # Merchant HQ
 
-**An agent co-pilot for the back office of a small e-commerce store.**
+**An agent co-pilot for a store's back office, built for the WebMCP Challenge.**
 
-Built for the [WebMCP Challenge](https://webmcphackathon.devpost.com/) (Sep 2026), sponsored by OpenAI with Shopify, Vercel, Cloudflare, Google Chrome, and Netlify.
+## Why WebMCP fits this
 
-## What it is
+Every public WebMCP commerce example out there is shopper-facing — search a catalog, manage a cart, check out. None of them are built for the person actually running the store. Merchant HQ is built for the merchant instead. Solo and small-team store owners with no staff to help run day-to-day operations are a real, underserved audience — and their back office — triaging orders, catching low stock, replying to customers, running a promo — is exactly the kind of structured, repetitive work an agent is good at.
 
-Merchant HQ is a Shopify-style operations dashboard for a solo or small-team merchant — today's orders, stock levels, customer messages, and discount codes, all on one screen. A human merchant works the dashboard normally: mark an order fulfilled, restock an item, reply to a customer, spin up a discount code.
+## What it does
 
-A **WebMCP-capable agent visiting the same page** can do the exact same things — live, on the same data, through the same UI. It calls tools registered directly on the page via `document.modelContext.registerTool(...)`, no screen-scraping or DOM guessing involved. Every action either the human or the agent takes — an order's status badge flipping, a stock number dropping, a draft reply appearing, a new discount chip showing up — is visible on screen and logged to a structured trace panel, so cause and effect are never just taken on faith.
+A human merchant works a normal dashboard — mark an order fulfilled, restock an item, reply to a customer, create a discount code. A WebMCP-capable agent visiting the same page can do the exact same things through registered tools, live, on the same data.
 
-## Why WebMCP fits this problem
-
-Almost every public WebMCP commerce example is **shopper-facing**: search a catalog, manage a cart, check out. None of them are built for the person actually running the store. But the back office of a small merchant is exactly the kind of repetitive, structured, multi-step work an agent is good at — triaging unfulfilled orders, catching low stock before it becomes a stockout, drafting replies to customer messages, creating a discount code for a promo — and WebMCP is what lets an agent do that *directly on the merchant's own dashboard*, with structured inputs and outputs, instead of a bespoke backend integration. The merchant keeps the UI they already trust; the agent gets a well-typed contract for acting on it.
+Both paths write through the same shared state, so any change — from a click or a tool call — updates every panel **instantly, with no reload**. Each changed row also flashes briefly to show who made it: teal for an agent, neutral slate for a human click.
 
 ## Architecture
 
@@ -30,26 +28,40 @@ Almost every public WebMCP commerce example is **shopper-facing**: search a cata
  Agent ──┘                             session-scoped store)
 ```
 
-- **Frontend:** Next.js (App Router, JavaScript), deployed on Vercel.
-- **Backend:** Next.js API routes (Route Handlers) under `/api/*`.
-- **Persistence:** Vercel KV (Upstash Redis), scoped by a per-visitor session cookie, with an in-memory fallback so the app runs locally with no KV store attached. Every session is seeded on first read with the same realistic fixture data — its own private sandbox store.
-- **WebMCP tools:** registered client-side on mount and backed by the same API routes the dashboard UI calls, so there's one source of truth for state regardless of whether a human or an agent changed it. Both paths write through shared client-side stores (subscribed via `useSyncExternalStore`), so a change made by an agent shows up in the dashboard instantly — no reload, no polling.
-- **Tracing:** every tool call and every human action writes a structured entry — who did it, what tool, what args, what result, how long it took, whether it errored — rendered as an expandable, unified timeline in the dashboard's side panel.
+Next.js (App Router) with API routes under `/api/*`, backed by Vercel KV (Upstash Redis) for orders, inventory, messages, and discounts. Storage is scoped by a per-visitor session cookie, so every visitor — including each judge — gets their own private sandbox store, seeded with the same realistic fixture data on first load.
 
 ## WebMCP tools
 
-Registered on `document.modelContext` by the dashboard on mount:
+Registered on `document.modelContext` (or `navigator.modelContext`) on page load:
 
 | Tool | Inputs | What it does |
 |---|---|---|
-| `get_dashboard_summary` | *(none)* | Returns `{ unfulfilledOrders, lowStockItems, openMessages }` — quick counts for "what needs my attention." |
-| `list_orders` | `status?` | Returns matching orders. Call before `update_order_status` to get valid ids. |
+| `get_dashboard_summary` | *(none)* | Quick counts of unfulfilled orders, low-stock items, and open messages — what needs attention right now. |
+| `list_orders` | `status?` | Lists orders, optionally filtered by status. |
 | `update_order_status` | `orderId`, `status` | Marks an order `fulfilled`, `refund_requested`, or `unfulfilled`. |
-| `list_inventory` | `lowStockOnly?` | Returns inventory items, optionally filtered to below-threshold. |
-| `restock_item` | `sku`, `addQty` | Increases an item's stock. |
-| `list_messages` | `status?` | Returns customer messages. |
-| `draft_message_reply` | `messageId`, `replyText` | Saves a draft reply and marks the message `replied`. |
-| `create_discount_code` | `percentOff`, `code?` | Creates a new discount code (auto-generates a code if omitted). |
+| `list_inventory` | `lowStockOnly?` | Lists inventory items, optionally filtered to below-threshold stock. |
+| `restock_item` | `sku`, `addQty` | Increases an item's stock by a given quantity. |
+| `list_messages` | `status?` | Lists customer messages, optionally filtered by status. |
+| `draft_message_reply` | `messageId`, `replyText` | Saves a draft reply to a customer message and marks it replied. |
+| `create_discount_code` | `percentOff`, `code?` | Creates a discount code (auto-generated if `code` is omitted) — gated behind merchant approval, see **Safety** below. |
+
+## Observability
+
+Every action — human or agent — writes a structured entry to a live trace panel: tool name, arguments, result, duration, and status. It's a unified timeline, not just an agent log, so cause and effect are never taken on faith.
+
+## Safety
+
+`create_discount_code` is the one tool with direct revenue impact, so it's gated behind the WebMCP `requestUserInteraction` API per spec: the agent's call blocks on a confirmation modal, and nothing is created until the merchant explicitly approves. A decline returns a clean (non-error) result and logs as its own `declined` status in the trace — distinct from both success and failure.
+
+## Known limitations
+
+- The activity trace is session-scoped and resets on reload; order/inventory/message/discount data persists via Vercel KV.
+- `requestUserInteraction` is implemented per the W3C WebMCP spec, but some current agent environments (tested: Chrome's tool inspector, ChatGPT's built-in browser) don't yet fully support invoking it. In that case the tool fails closed — it refuses cleanly rather than skipping confirmation silently.
+- This is a self-contained demo store with fixture data, not connected to a real Shopify account.
+
+## Live URL
+
+**[merchant-hq.vercel.app](https://merchant-hq.vercel.app)**
 
 ## Running locally
 
@@ -58,9 +70,7 @@ npm install
 npm run dev
 ```
 
-Then open [http://localhost:3000](http://localhost:3000).
-
-No Vercel KV / Upstash store is required locally — if `KV_REST_API_URL` and `KV_REST_API_TOKEN` aren't set, the app transparently falls back to an in-memory store for the life of the dev server process. To use real persistence, attach a Vercel KV (Upstash Redis) integration in the Vercel dashboard and pull the resulting env vars with `vercel env pull`.
+Then open [http://localhost:3000](http://localhost:3000). No Vercel KV setup is required — if the KV env vars aren't set, the app automatically falls back to in-memory storage.
 
 To exercise the WebMCP tools, open the app in a WebMCP-capable browser — ChatGPT's in-app browser, or Google Chrome with the `chrome://flags/#enable-webmcp-testing` flag enabled.
 
